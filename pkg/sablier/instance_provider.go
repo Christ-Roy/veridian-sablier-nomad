@@ -28,3 +28,13 @@ type PodmanContainerInfo struct {
 	Image  string            `json:"image" jsonschema:"description=Container image (template access: .Podman.Image),example=nginx:latest"`
 	Labels map[string]string `json:"labels,omitempty" jsonschema:"description=Container labels (template access: .Podman.Labels)"`
 }
+
+// NomadJobInfo holds HashiCorp Nomad-specific workload metadata. A Sablier
+// instance maps to a single task group of a Nomad job.
+type NomadJobInfo struct {
+	Namespace string            `json:"namespace" jsonschema:"description=Nomad namespace (template access: .Nomad.Namespace),example=default"`
+	JobID     string            `json:"jobId" jsonschema:"description=Nomad job ID (template access: .Nomad.JobID),example=whoami"`
+	Group     string            `json:"group" jsonschema:"description=Nomad task group (template access: .Nomad.Group),example=demo"`
+	Image     string            `json:"image,omitempty" jsonschema:"description=First task image of the group (template access: .Nomad.Image),example=traefik/whoami:latest"`
+	Meta      map[string]string `json:"meta,omitempty" jsonschema:"description=Merged job and group meta (template access: .Nomad.Meta)"`
+}
