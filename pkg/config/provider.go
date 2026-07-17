@@ -62,6 +62,7 @@ type Provider struct {
 	Podman     Podman
 	Docker     Docker
 	ProxmoxLXC ProxmoxLXC
+	Nomad      Nomad
 }
 
 type Kubernetes struct {
@@ -166,7 +167,32 @@ type ProxmoxLXC struct {
 	TLSInsecure bool
 }
 
-var providers = []string{"docker", "docker_swarm", "swarm", "kubernetes", "podman", "proxmox_lxc"}
+// Nomad holds the HashiCorp Nomad provider configuration. Connection settings
+// (address, ACL token, region, TLS) are read from the standard Nomad
+// environment variables (NOMAD_ADDR, NOMAD_TOKEN, NOMAD_NAMESPACE, NOMAD_REGION,
+// NOMAD_CACERT, ...) through the Nomad API's DefaultConfig, mirroring how the
+// Docker and Kubernetes providers pick up their environment.
+type Nomad struct {
+	// Namespace is the Nomad namespace workloads live in. Empty falls back to
+	// the NOMAD_NAMESPACE environment variable (and ultimately Nomad's "default").
+	// Env: SABLIER_PROVIDER_NOMAD_NAMESPACE
+	// CLI: --provider.nomad.namespace
+	// Default: ""
+	// Since: NEXT_RELEASE
+	Namespace string
+
+	// Delimiter separates the job ID, task group, and optional replica count in
+	// instance identifiers (e.g. "whoami", "whoami@web", "whoami@web@2"). It
+	// defaults to "@" because that character is invalid in Nomad job and group
+	// identifiers, so a bare job ID never collides with the delimiter.
+	// Env: SABLIER_PROVIDER_NOMAD_DELIMITER
+	// CLI: --provider.nomad.delimiter
+	// Default: "@"
+	// Since: NEXT_RELEASE
+	Delimiter string
+}
+
+var providers = []string{"docker", "docker_swarm", "swarm", "kubernetes", "podman", "proxmox_lxc", "nomad"}
 var dockerStrategies = []string{"stop", "pause"}
 
 func NewProviderConfig() Provider {
@@ -185,6 +211,9 @@ func NewProviderConfig() Provider {
 			Strategy: "stop",
 		},
 		ProxmoxLXC: ProxmoxLXC{},
+		Nomad: Nomad{
+			Delimiter: "@",
+		},
 	}
 }
 
