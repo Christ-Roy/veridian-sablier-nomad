@@ -71,6 +71,10 @@ It provides integrations with multiple reverse proxies and different loading str
 	_ = viper.BindPFlag("provider.proxmox-lxc.token-secret", startCmd.Flags().Lookup("provider.proxmox-lxc.token-secret"))
 	startCmd.Flags().BoolVar(&conf.Provider.ProxmoxLXC.TLSInsecure, "provider.proxmox-lxc.tls-insecure", false, "Skip TLS certificate verification for Proxmox VE API")
 	_ = viper.BindPFlag("provider.proxmox-lxc.tls-insecure", startCmd.Flags().Lookup("provider.proxmox-lxc.tls-insecure"))
+	startCmd.Flags().StringVar(&conf.Provider.Nomad.Namespace, "provider.nomad.namespace", "", "Nomad namespace to manage workloads in. Empty falls back to NOMAD_NAMESPACE.")
+	_ = viper.BindPFlag("provider.nomad.namespace", startCmd.Flags().Lookup("provider.nomad.namespace"))
+	startCmd.Flags().StringVar(&conf.Provider.Nomad.Delimiter, "provider.nomad.delimiter", "@", "Delimiter used for jobID/group/replicas resolution in instance names. Defaults to \"@\", which is invalid in Nomad identifiers.")
+	_ = viper.BindPFlag("provider.nomad.delimiter", startCmd.Flags().Lookup("provider.nomad.delimiter"))
 
 	// Server flags
 	startCmd.Flags().IntVar(&conf.Server.Port, "server.port", 10000, "The server port to use")

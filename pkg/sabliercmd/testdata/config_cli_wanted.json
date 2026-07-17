@@ -33,6 +33,10 @@
       "TokenID": "",
       "TokenSecret": "",
       "TLSInsecure": false
+    },
+    "Nomad": {
+      "Namespace": "",
+      "Delimiter": "@"
     }
   },
   "Sessions": {

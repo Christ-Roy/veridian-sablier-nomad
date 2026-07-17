@@ -7,6 +7,7 @@ import (
 	"log/slog"
 	"net/http"
 
+	nomadapi "github.com/hashicorp/nomad/api"
 	proxmox "github.com/luthermonson/go-proxmox"
 	"github.com/moby/moby/client"
 	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
@@ -16,6 +17,7 @@ import (
 	"github.com/sablierapp/sablier/pkg/provider/docker"
 	"github.com/sablierapp/sablier/pkg/provider/dockerswarm"
 	"github.com/sablierapp/sablier/pkg/provider/kubernetes"
+	"github.com/sablierapp/sablier/pkg/provider/nomad"
 	"github.com/sablierapp/sablier/pkg/provider/podman"
 	"github.com/sablierapp/sablier/pkg/provider/proxmoxlxc"
 	"github.com/sablierapp/sablier/pkg/sablier"
@@ -106,6 +108,22 @@ func setupProvider(ctx context.Context, logger *slog.Logger, config config.Provi
 		}))
 		cli := proxmox.NewClient(config.ProxmoxLXC.URL, opts...)
 		return proxmoxlxc.New(ctx, cli, logger)
+	case "nomad":
+		// Connection settings (NOMAD_ADDR, NOMAD_TOKEN, NOMAD_NAMESPACE,
+		// NOMAD_REGION, NOMAD_CACERT, ...) are read from the environment through
+		// the Nomad API's DefaultConfig, mirroring the Docker/Kubernetes clients.
+		nomadConfig := nomadapi.DefaultConfig()
+		if config.Nomad.Namespace != "" {
+			nomadConfig.Namespace = config.Nomad.Namespace
+		}
+		nomadConfig.HttpClient = &http.Client{
+			Transport: otelhttp.NewTransport(http.DefaultTransport),
+		}
+		cli, err := nomadapi.NewClient(nomadConfig)
+		if err != nil {
+			return nil, fmt.Errorf("cannot create nomad client: %w", err)
+		}
+		return nomad.New(ctx, cli, logger, config.Nomad)
 	}
 	return nil, fmt.Errorf("unimplemented provider %s", config.Name)
 }
