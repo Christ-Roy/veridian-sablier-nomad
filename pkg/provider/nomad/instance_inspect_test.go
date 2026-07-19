@@ -31,6 +31,59 @@ func TestInstanceStatus(t *testing.T) {
 	}
 }
 
+func TestInstanceStatusFromHealth(t *testing.T) {
+	tests := []struct {
+		name                      string
+		desired, running, healthy int
+		checksSeen                bool
+		want                      sablier.InstanceStatus
+	}{
+		{"stopped", 0, 0, 0, false, sablier.InstanceStatusStopped},
+		{"stopped-draining", 0, 3, 3, true, sablier.InstanceStatusStopped},
+		// Health-gated: running but checks not yet success → Starting.
+		{"running-no-checks-success", 1, 1, 0, true, sablier.InstanceStatusStarting},
+		{"running-checks-pending", 1, 1, 0, true, sablier.InstanceStatusStarting},
+		{"healthy", 1, 1, 1, true, sablier.InstanceStatusReady},
+		{"partially-healthy", 2, 2, 1, true, sablier.InstanceStatusStarting},
+		{"all-healthy", 2, 2, 2, true, sablier.InstanceStatusReady},
+		{"over-healthy", 1, 2, 2, true, sablier.InstanceStatusReady},
+		// Fallback (no check exposed) → running-count rule, so a checkless
+		// target is never wedged in Starting.
+		{"fallback-running-ready", 1, 1, 0, false, sablier.InstanceStatusReady},
+		{"fallback-scaling", 2, 1, 0, false, sablier.InstanceStatusStarting},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := instanceStatusFromHealth(tt.desired, tt.running, tt.healthy, tt.checksSeen); got != tt.want {
+				t.Errorf("instanceStatusFromHealth(%d,%d,%d,%v)=%q want %q", tt.desired, tt.running, tt.healthy, tt.checksSeen, got, tt.want)
+			}
+		})
+	}
+}
+
+func TestAllChecksHealthy(t *testing.T) {
+	if allChecksHealthy(nomadapi.AllocCheckStatuses{}) {
+		t.Error("empty check set must not be healthy")
+	}
+	if !allChecksHealthy(nomadapi.AllocCheckStatuses{
+		"a": {Status: "success"},
+		"b": {Status: "success"},
+	}) {
+		t.Error("all-success set should be healthy")
+	}
+	if allChecksHealthy(nomadapi.AllocCheckStatuses{
+		"a": {Status: "success"},
+		"b": {Status: "pending"},
+	}) {
+		t.Error("a pending check must make the set unhealthy")
+	}
+	if allChecksHealthy(nomadapi.AllocCheckStatuses{
+		"a": {Status: "failure"},
+	}) {
+		t.Error("a failing check must make the set unhealthy")
+	}
+}
+
 func TestStatusForCount(t *testing.T) {
 	if got := statusForCount(0); got != sablier.InstanceStatusStopped {
 		t.Errorf("statusForCount(0)=%q", got)
