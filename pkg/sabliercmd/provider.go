@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http"
+	"strings"
 
 	nomadapi "github.com/hashicorp/nomad/api"
 	proxmox "github.com/luthermonson/go-proxmox"
@@ -112,13 +113,7 @@ func setupProvider(ctx context.Context, logger *slog.Logger, config config.Provi
 		// Connection settings (NOMAD_ADDR, NOMAD_TOKEN, NOMAD_NAMESPACE,
 		// NOMAD_REGION, NOMAD_CACERT, ...) are read from the environment through
 		// the Nomad API's DefaultConfig, mirroring the Docker/Kubernetes clients.
-		nomadConfig := nomadapi.DefaultConfig()
-		if config.Nomad.Namespace != "" {
-			nomadConfig.Namespace = config.Nomad.Namespace
-		}
-		nomadConfig.HttpClient = &http.Client{
-			Transport: otelhttp.NewTransport(http.DefaultTransport),
-		}
+		nomadConfig := newNomadAPIConfig(config.Nomad)
 		cli, err := nomadapi.NewClient(nomadConfig)
 		if err != nil {
 			return nil, fmt.Errorf("cannot create nomad client: %w", err)
@@ -126,4 +121,20 @@ func setupProvider(ctx context.Context, logger *slog.Logger, config config.Provi
 		return nomad.New(ctx, cli, logger, config.Nomad)
 	}
 	return nil, fmt.Errorf("unimplemented provider %s", config.Name)
+}
+
+// newNomadAPIConfig preserves the Nomad client's native Unix-socket transport.
+// Replacing HttpClient for a unix:// address silently makes requests fall back
+// to 127.0.0.1:80, which breaks the Nomad Task API used by workload identities.
+func newNomadAPIConfig(providerConfig config.Nomad) *nomadapi.Config {
+	nomadConfig := nomadapi.DefaultConfig()
+	if providerConfig.Namespace != "" {
+		nomadConfig.Namespace = providerConfig.Namespace
+	}
+	if !strings.HasPrefix(strings.ToLower(nomadConfig.Address), "unix://") {
+		nomadConfig.HttpClient = &http.Client{
+			Transport: otelhttp.NewTransport(http.DefaultTransport),
+		}
+	}
+	return nomadConfig
 }
